@@ -1,66 +1,55 @@
 console.log("Deadscroll Blocker: Content script loaded.");
 
 // --- Configuration ---
-const SHORT_LIMIT = 5;
+let SHORT_LIMIT = 5; // We will load this from storage later
 
 // --- State ---
 let shortsWatchedCount = 0;
 
+// --- Helper Functions ---
+const formatTime = (ms) => {
+  let seconds = Math.floor(ms / 1000);
+  let minutes = Math.floor(seconds / 60);
+  let hours = Math.floor(minutes / 60);
+
+  seconds = seconds % 60;
+  minutes = minutes % 60;
+
+  return `${hours}h ${minutes}m ${seconds}s`;
+};
+
 // --- DOM Elements ---
+const showBlockScreen = (timeLeft) => {
+  // If an overlay already exists, don't create another one
+  if (document.getElementById('deadscroll-blocker-overlay')) return;
 
-// This function creates and displays the block screen overlay
-const showBlockScreen = () => {
-  console.log("Deadscroll Blocker: Limit reached. Showing block screen.");
-
-  // Create the main overlay div
   const overlay = document.createElement('div');
-  overlay.id = 'deadscroll-blocker-overlay'; // Give it an ID for styling
-
-  // Style the overlay using CSS
+  overlay.id = 'deadscroll-blocker-overlay';
   Object.assign(overlay.style, {
-    position: 'fixed',
-    top: '0',
-    left: '0',
-    width: '100%',
-    height: '100vh',
-    backgroundColor: 'rgba(25, 25, 25, 0.98)', // Dark, semi-transparent background
-    zIndex: '9999', // Ensure it's on top of everything
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
-    color: 'white',
-    fontFamily: 'Arial, sans-serif',
-    textAlign: 'center'
+    position: 'fixed', top: '0', left: '0', width: '100%', height: '100vh',
+    backgroundColor: 'rgba(25, 25, 25, 0.98)', zIndex: '9999', display: 'flex',
+    flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+    color: 'white', fontFamily: 'Arial, sans-serif', textAlign: 'center'
   });
 
-  // Create the heading
   const heading = document.createElement('h1');
   heading.textContent = 'Time for a Break! 🛑';
-  Object.assign(heading.style, {
-    fontSize: '48px',
-    marginBottom: '20px'
-  });
-  
-  // Create the message paragraph
+  heading.style.fontSize = '48px';
+
   const message = document.createElement('p');
-  message.textContent = `You've watched ${SHORT_LIMIT} Shorts. The feed is now paused.`;
-  Object.assign(message.style, {
-    fontSize: '24px',
-    maxWidth: '500px'
-  });
+  // Show different message if on cooldown vs. just hitting the limit
+  if (timeLeft) {
+    message.textContent = `The feed is paused. Time remaining: ${formatTime(timeLeft)}`;
+  } else {
+    message.textContent = `You've watched ${SHORT_LIMIT} Shorts. The feed is now paused.`;
+  }
+  message.style.fontSize = '24px';
 
-  // Add the heading and message to the overlay
-  overlay.appendChild(heading);
-  overlay.appendChild(message);
-
-  // Add the overlay to the page's body
+  overlay.append(heading, message);
   document.body.appendChild(overlay);
 };
 
-
-// --- Core Logic: The Observer ---
-
+// --- Core Logic ---
 const handleMutation = (mutationsList, observer) => {
   for (const mutation of mutationsList) {
     if (mutation.type === 'childList') {
@@ -69,11 +58,11 @@ const handleMutation = (mutationsList, observer) => {
           shortsWatchedCount++;
           console.log(`Deadscroll Blocker: Shorts watched count is now ${shortsWatchedCount}`);
 
-          // --- NEW: Check the limit and block if necessary ---
           if (shortsWatchedCount >= SHORT_LIMIT) {
+            // Tell the background script to start the timer
+            chrome.runtime.sendMessage({ action: 'startCooldown' }); // Will use default 2 hours
             showBlockScreen();
-            // Stop observing once the limit is reached to prevent further execution
-            observer.disconnect(); 
+            observer.disconnect();
             console.log("Deadscroll Blocker: Observer disconnected.");
           }
         }
@@ -82,17 +71,28 @@ const handleMutation = (mutationsList, observer) => {
   }
 };
 
-
-// --- Initializing the Observer ---
-
-const initObserver = setInterval(() => {
+const initObserver = () => {
   const targetNode = document.getElementById('shorts-container');
-  
   if (targetNode) {
-    clearInterval(initObserver); 
     console.log("Deadscroll Blocker: Found shorts-container, attaching observer.");
     const observer = new MutationObserver(handleMutation);
     const config = { childList: true, subtree: true };
     observer.observe(targetNode, config);
+  } else {
+    // If the container isn't there, check again in a second
+    setTimeout(initObserver, 1000);
   }
-}, 1000);
+};
+
+// --- SCRIPT ENTRY POINT ---
+// 1. Check if we are currently in a cooldown period
+chrome.runtime.sendMessage({ action: 'getCooldownState' }, (response) => {
+  if (response.onCooldown) {
+    console.log("Deadscroll Blocker: Cooldown is active.");
+    showBlockScreen(response.timeLeft);
+  } else {
+    console.log("Deadscroll Blocker: No active cooldown, starting observer.");
+    // 2. If not on cooldown, start watching for shorts
+    initObserver();
+  }
+});
