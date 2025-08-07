@@ -2,9 +2,11 @@ console.log("Deadscroll Blocker: Initializing...");
 
 // --- STATE & CONFIGURATION ---
 let shortsObserver = null;
-let shortsWatchedCount = 0;
+let shortsWatchedCount = 0;       // Raw count of all videos loaded in this session
+let initialVideoOffset = 0;       // How many videos were pre-loaded
+let isInitialLoad = true;         // Flag to track if we've calculated the offset yet
 const SHORT_LIMIT = 5;
-let currentPageState = 'none'; // Can be 'none', 'shorts', or 'other'
+let currentPageState = 'none';
 
 // --- HELPER FUNCTIONS ---
 function formatTime(ms) {
@@ -46,19 +48,43 @@ function showBlockScreen(timeLeft) {
 }
 
 function handleShortsMutation(mutationsList) {
-  for (const mutation of mutationsList) {
-    if (mutation.type === 'childList') {
-      mutation.addedNodes.forEach(node => {
+  // This function now has two modes: an initial run to set the offset,
+  // and subsequent runs to count user scrolls.
+
+  if (isInitialLoad) {
+    // SETUP MODE: This runs only once per session.
+    let initialNodes = 0;
+    for (const mutation of mutationsList) {
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType === 1 && node.tagName === 'YTD-REEL-VIDEO-RENDERER') {
+          initialNodes++;
+        }
+      }
+    }
+    
+    if (initialNodes > 0) {
+      initialVideoOffset = initialNodes;
+      shortsWatchedCount = initialNodes; // The raw count should start at the offset
+      console.log(`Deadscroll Blocker: Initial load detected. Dynamic offset set to: ${initialVideoOffset}`);
+      isInitialLoad = false; // Switch to counting mode
+    }
+  } else {
+    // COUNTING MODE: This runs for every user-initiated scroll.
+    for (const mutation of mutationsList) {
+      for (const node of mutation.addedNodes) {
         if (node.nodeType === 1 && node.tagName === 'YTD-REEL-VIDEO-RENDERER') {
           shortsWatchedCount++;
-          console.log(`Deadscroll Blocker: Shorts count is now ${shortsWatchedCount}`);
-          if (shortsWatchedCount >= SHORT_LIMIT) {
+          const userVisibleCount = shortsWatchedCount - initialVideoOffset;
+
+          console.log(`Deadscroll Blocker: Shorts count is now ${userVisibleCount}`);
+          
+          if (userVisibleCount >= SHORT_LIMIT) {
             chrome.runtime.sendMessage({ action: 'startCooldown' });
             showBlockScreen();
             if (shortsObserver) shortsObserver.disconnect();
           }
         }
-      });
+      }
     }
   }
 }
@@ -72,7 +98,11 @@ function initializeShortsPage() {
         showBlockScreen(response.timeLeft);
       } else {
         if (shortsObserver) shortsObserver.disconnect();
+        // Reset all state for the new session
         shortsWatchedCount = 0;
+        initialVideoOffset = 0;
+        isInitialLoad = true; 
+        
         const targetNode = document.getElementById('shorts-container');
         if (targetNode) {
           shortsObserver = new MutationObserver(handleShortsMutation);
@@ -99,9 +129,7 @@ function cleanupShortsPage() {
 function checkPageState() {
   const url = window.location.href;
   const newState = url.includes('/shorts/') ? 'shorts' : 'other';
-
   if (newState === currentPageState) return;
-
   console.log(`Deadscroll Blocker: Page state changed from '${currentPageState}' to '${newState}'`);
   if (currentPageState === 'shorts') { cleanupShortsPage(); }
   if (newState === 'shorts') { initializeShortsPage(); }
