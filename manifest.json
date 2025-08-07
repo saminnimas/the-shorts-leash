@@ -1,0 +1,19 @@
+{
+    "manifest_version": 3,
+    "name": "Deadscroll Blocker",
+    "version": "1.0.0",
+    "description": "Limits YouTube Shorts scrolling to help you reclaim your focus.",
+    "permissions": ["storage"],
+    "background": {
+      "service_worker": "background.js"
+    },
+    "content_scripts": [
+      {
+        "matches": ["https://www.youtube.com/shorts/*"],
+        "js": ["content.js"]
+      }
+    ],
+    "action": {
+      "default_popup": "popup.html"
+    }
+  }
