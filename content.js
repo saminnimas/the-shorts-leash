@@ -6,7 +6,7 @@ let shortsWatchedCount = 0;
 const SHORT_LIMIT = 5;
 let currentPageState = 'none'; // Can be 'none', 'shorts', or 'other'
 
-// --- HELPER FUNCTIONS (No Changes) ---
+// --- HELPER FUNCTIONS ---
 function formatTime(ms) {
   let seconds = Math.floor(ms / 1000); let minutes = Math.floor(seconds / 60); let hours = Math.floor(minutes / 60);
   seconds %= 60; minutes %= 60;
@@ -15,7 +15,6 @@ function formatTime(ms) {
 const blockScrollEvents = (e) => { e.preventDefault(); e.stopPropagation(); };
 
 // --- CORE FUNCTIONS ---
-
 function showBlockScreen(timeLeft) {
   if (document.getElementById('deadscroll-blocker-overlay')) return;
   const tryPauseVideo = () => {
@@ -46,7 +45,6 @@ function showBlockScreen(timeLeft) {
   document.body.appendChild(overlay);
 }
 
-// This callback is now stable and will not be reset during scrolling
 function handleShortsMutation(mutationsList) {
   for (const mutation of mutationsList) {
     if (mutation.type === 'childList') {
@@ -65,28 +63,14 @@ function handleShortsMutation(mutationsList) {
   }
 }
 
-// Runs ONLY ONCE when navigating TO the shorts page
 function initializeShortsPage() {
   console.log("Deadscroll Blocker: Initializing for Shorts page.");
   try {
     chrome.runtime.sendMessage({ action: 'getCooldownState' }, response => {
       if (chrome.runtime.lastError) return;
-      
       if (response && response.onCooldown) {
-        // --- NEW: Wait for the shorts container before blocking ---
-        const waitForContainerAndBlock = () => {
-          if (document.getElementById('shorts-container')) {
-            console.log("Deadscroll Blocker: Container found, showing block screen.");
-            showBlockScreen(response.timeLeft);
-          } else {
-            // If the container isn't ready, check again in 100ms
-            setTimeout(waitForContainerAndBlock, 100);
-          }
-        };
-        waitForContainerAndBlock();
-
+        showBlockScreen(response.timeLeft);
       } else {
-        // Not on cooldown, so start the observer.
         if (shortsObserver) shortsObserver.disconnect();
         shortsWatchedCount = 0;
         const targetNode = document.getElementById('shorts-container');
@@ -101,7 +85,6 @@ function initializeShortsPage() {
   } catch (e) { console.error("Deadscroll Blocker: Extension context invalidated."); }
 }
 
-// Runs ONLY ONCE when navigating AWAY from the shorts page
 function cleanupShortsPage() {
   console.log("Deadscroll Blocker: Cleaning up from Shorts page.");
   if (shortsObserver) { shortsObserver.disconnect(); shortsObserver = null; }
@@ -117,7 +100,7 @@ function checkPageState() {
   const url = window.location.href;
   const newState = url.includes('/shorts/') ? 'shorts' : 'other';
 
-  if (newState === currentPageState) return; // State hasn't changed, do nothing.
+  if (newState === currentPageState) return;
 
   console.log(`Deadscroll Blocker: Page state changed from '${currentPageState}' to '${newState}'`);
   if (currentPageState === 'shorts') { cleanupShortsPage(); }
