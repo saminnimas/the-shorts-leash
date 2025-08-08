@@ -5,7 +5,7 @@ let shortsObserver = null;
 let shortsWatchedCount = 0;       // Raw count of all videos loaded in this session
 let initialVideoOffset = 0;       // How many videos were pre-loaded
 let isInitialLoad = true;         // Flag to track if we've calculated the offset yet
-const SHORT_LIMIT = 5;
+let SHORT_LIMIT = 5;              // Default value
 let currentPageState = 'none';
 
 // --- HELPER FUNCTIONS ---
@@ -92,6 +92,12 @@ function handleShortsMutation(mutationsList) {
 function initializeShortsPage() {
   console.log("Deadscroll Blocker: Initializing for Shorts page.");
   try {
+    chrome.storage.sync.get('settings', (data) => {
+      if (data.settings && data.settings.shortsLimit) {
+          SHORT_LIMIT = data.settings.shortsLimit;
+          console.log(`Deadscroll Blocker: Custom short limit loaded: ${SHORT_LIMIT}`);
+      }
+    });
     chrome.runtime.sendMessage({ action: 'getCooldownState' }, response => {
       if (chrome.runtime.lastError) return;
       if (response && response.onCooldown) {

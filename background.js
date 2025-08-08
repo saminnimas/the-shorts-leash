@@ -2,13 +2,16 @@
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Check the action specified in the message
     if (message.action === 'startCooldown') {
-      // Default duration is 2 hours in milliseconds
-      const duration = message.duration || 2 * 60 * 60 * 1000;
-      const pauseUntil = Date.now() + duration;
+      // Load the user's custom settings first
+      chrome.storage.sync.get('settings', (data) => {
+          // Use the saved cooldown hours, or default to 2
+          const cooldownHours = (data.settings && data.settings.cooldownHours) ? data.settings.cooldownHours : 2;
+          const duration = cooldownHours * 60 * 60 * 1000;
+          const pauseUntil = Date.now() + duration;
   
-      // Save the timestamp when the cooldown ends
-      chrome.storage.sync.set({ pauseUntil: pauseUntil }, () => {
-        console.log(`Deadscroll Blocker: Cooldown started. Paused until ${new Date(pauseUntil).toLocaleTimeString()}`);
+          chrome.storage.sync.set({ pauseUntil: pauseUntil }, () => {
+              console.log(`Deadscroll Blocker: Cooldown started. Paused until ${new Date(pauseUntil).toLocaleTimeString()}`);
+          });
       });
       return true; // Keep the message channel open for async response
     }
