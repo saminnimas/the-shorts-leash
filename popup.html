@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Deadscroll Blocker Settings</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="icons/icon128.png" class="logo">
+            <h1>Deadscroll Blocker</h1>
+        </div>
+
+        <div class="setting-row">
+            <label for="shortsLimit">Shorts Limit Before Pause</label>
+            <input type="number" id="shortsLimit" min="1" max="100">
+        </div>
+
+        <div class="setting-row">
+            <label for="cooldownHours">Cooldown Duration (Hours)</label>
+            <input type="number" id="cooldownHours" min="1" max="12">
+        </div>
+
+        <button id="saveButton">Save Settings</button>
+        <div id="status" class="status-message"></div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>
