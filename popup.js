@@ -11,9 +11,9 @@ const saveSettings = () => {
     const shortsLimit = parseInt(shortsLimitInput.value, 10);
     const cooldownHours = parseInt(cooldownHoursInput.value, 10);
 
-    // Basic validation
-    if (isNaN(shortsLimit) || shortsLimit < 1) {
-        statusMessage.textContent = 'Invalid Short Limit.';
+    // --- UPDATED VALIDATION ---
+    if (isNaN(shortsLimit) || shortsLimit < 1 || shortsLimit > 20) {
+        statusMessage.textContent = 'Shorts limit must be between 1 and 20.';
         return;
     }
     if (isNaN(cooldownHours) || cooldownHours < 1 || cooldownHours > 12) {
@@ -28,12 +28,12 @@ const saveSettings = () => {
 
     chrome.storage.sync.set({ settings }, () => {
         console.log('Settings saved:', settings);
-        statusMessage.textContent = 'Settings saved!';
-        setTimeout(() => {
-            statusMessage.textContent = '';
-        }, 2000); // Clear message after 2 seconds
+        // --- UPDATED MESSAGE ---
+        statusMessage.textContent = 'Settings saved! Reload YouTube for changes to take effect.';
+        // The message will now stay until the popup is closed.
     });
 };
+
 
 // 2. Loads the settings from chrome.storage.sync
 const loadSettings = () => {

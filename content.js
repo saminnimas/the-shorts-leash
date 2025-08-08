@@ -48,66 +48,55 @@ function showBlockScreen(timeLeft) {
 }
 
 function handleShortsMutation(mutationsList) {
-  // This function now has two modes: an initial run to set the offset,
-  // and subsequent runs to count user scrolls.
-
-  if (isInitialLoad) {
-    // SETUP MODE: This runs only once per session.
-    let initialNodes = 0;
-    for (const mutation of mutationsList) {
-      for (const node of mutation.addedNodes) {
-        if (node.nodeType === 1 && node.tagName === 'YTD-REEL-VIDEO-RENDERER') {
-          initialNodes++;
-        }
+  let newShortsFound = false;
+  for (const mutation of mutationsList) {
+    for (const node of mutation.addedNodes) {
+      if (node.nodeType === 1 && node.tagName === 'YTD-REEL-VIDEO-RENDERER') {
+        newShortsFound = true;
+        break; // We only care if at least one short was added
       }
+    }
+    if (newShortsFound) break;
+  }
+
+  if (newShortsFound) {
+    if (!hasCountedInitialLoad) {
+      // The very first event (pre-load or first scroll) counts as 1.
+      shortsWatchedCount = 1;
+      hasCountedInitialLoad = true;
+    } else {
+      // Every subsequent scroll increments the count.
+      shortsWatchedCount++;
     }
     
-    if (initialNodes > 0) {
-      initialVideoOffset = initialNodes;
-      shortsWatchedCount = initialNodes; // The raw count should start at the offset
-      console.log(`Deadscroll Blocker: Initial load detected. Dynamic offset set to: ${initialVideoOffset}`);
-      isInitialLoad = false; // Switch to counting mode
-    }
-  } else {
-    // COUNTING MODE: This runs for every user-initiated scroll.
-    for (const mutation of mutationsList) {
-      for (const node of mutation.addedNodes) {
-        if (node.nodeType === 1 && node.tagName === 'YTD-REEL-VIDEO-RENDERER') {
-          shortsWatchedCount++;
-          const userVisibleCount = shortsWatchedCount - initialVideoOffset;
+    console.log(`Deadscroll Blocker: Shorts count is now ${shortsWatchedCount}`);
 
-          console.log(`Deadscroll Blocker: Shorts count is now ${userVisibleCount}`);
-          
-          if (userVisibleCount >= SHORT_LIMIT) {
-            chrome.runtime.sendMessage({ action: 'startCooldown' });
-            showBlockScreen();
-            if (shortsObserver) shortsObserver.disconnect();
-          }
-        }
-      }
+    if (shortsWatchedCount >= SHORT_LIMIT) {
+      chrome.runtime.sendMessage({ action: 'startCooldown' });
+      showBlockScreen();
+      if (shortsObserver) shortsObserver.disconnect();
     }
   }
 }
+
 
 function initializeShortsPage() {
   console.log("Deadscroll Blocker: Initializing for Shorts page.");
   try {
     chrome.storage.sync.get('settings', (data) => {
-      if (data.settings && data.settings.shortsLimit) {
-          SHORT_LIMIT = data.settings.shortsLimit;
-          console.log(`Deadscroll Blocker: Custom short limit loaded: ${SHORT_LIMIT}`);
-      }
+        if (data.settings && data.settings.shortsLimit) {
+            SHORT_LIMIT = data.settings.shortsLimit;
+        }
     });
+
     chrome.runtime.sendMessage({ action: 'getCooldownState' }, response => {
       if (chrome.runtime.lastError) return;
       if (response && response.onCooldown) {
         showBlockScreen(response.timeLeft);
       } else {
         if (shortsObserver) shortsObserver.disconnect();
-        // Reset all state for the new session
         shortsWatchedCount = 0;
-        initialVideoOffset = 0;
-        isInitialLoad = true; 
+        hasCountedInitialLoad = false; // Reset the flag for the new session
         
         const targetNode = document.getElementById('shorts-container');
         if (targetNode) {
@@ -120,6 +109,7 @@ function initializeShortsPage() {
     });
   } catch (e) { console.error("Deadscroll Blocker: Extension context invalidated."); }
 }
+
 
 function cleanupShortsPage() {
   console.log("Deadscroll Blocker: Cleaning up from Shorts page.");
