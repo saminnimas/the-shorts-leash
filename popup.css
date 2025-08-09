@@ -67,7 +67,15 @@ input[type="number"] {
 .status-message {
     margin-top: 10px;
     font-size: 13px;
-    color: #4CAF50;
     text-align: center;
     height: 15px;
+    font-weight: bold;
+}
+
+.status-success {
+    color: #4CAF50; 
+}
+
+.status-error {
+    color: #F44336;
 }
