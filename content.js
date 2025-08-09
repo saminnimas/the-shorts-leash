@@ -1,6 +1,3 @@
-console.log("Deadscroll Blocker: Initializing...");
-
-// --- STATE & CONFIGURATION ---
 let shortsObserver = null;
 let shortsWatchedCount = 0;       // Raw count of all videos loaded in this session
 let initialVideoOffset = 0;       // How many videos were pre-loaded
@@ -8,7 +5,7 @@ let isInitialLoad = true;         // Flag to track if we've calculated the offse
 let SHORT_LIMIT = 5;              // Default value
 let currentPageState = 'none';
 
-// --- HELPER FUNCTIONS ---
+
 function formatTime(ms) {
   let seconds = Math.floor(ms / 1000); let minutes = Math.floor(seconds / 60); let hours = Math.floor(minutes / 60);
   seconds %= 60; minutes %= 60;
@@ -16,7 +13,7 @@ function formatTime(ms) {
 }
 const blockScrollEvents = (e) => { e.preventDefault(); e.stopPropagation(); };
 
-// --- CORE FUNCTIONS ---
+
 function showBlockScreen(timeLeft) {
   if (document.getElementById('deadscroll-blocker-overlay')) return;
   const tryPauseVideo = () => {
@@ -53,7 +50,7 @@ function handleShortsMutation(mutationsList) {
     for (const node of mutation.addedNodes) {
       if (node.nodeType === 1 && node.tagName === 'YTD-REEL-VIDEO-RENDERER') {
         newShortsFound = true;
-        break; // We only care if at least one short was added
+        break;
       }
     }
     if (newShortsFound) break;
@@ -61,15 +58,13 @@ function handleShortsMutation(mutationsList) {
 
   if (newShortsFound) {
     if (!hasCountedInitialLoad) {
-      // The very first event (pre-load or first scroll) counts as 1.
       shortsWatchedCount = 1;
       hasCountedInitialLoad = true;
     } else {
-      // Every subsequent scroll increments the count.
       shortsWatchedCount++;
     }
     
-    console.log(`Deadscroll Blocker: Shorts count is now ${shortsWatchedCount}`);
+    // console.log(`Deadscroll Blocker: Shorts count is now ${shortsWatchedCount}`);
 
     if (shortsWatchedCount >= SHORT_LIMIT) {
       chrome.runtime.sendMessage({ action: 'startCooldown' });
@@ -81,7 +76,7 @@ function handleShortsMutation(mutationsList) {
 
 
 function initializeShortsPage() {
-  console.log("Deadscroll Blocker: Initializing for Shorts page.");
+  // console.log("Deadscroll Blocker: Initializing for Shorts page.");
   try {
     chrome.storage.sync.get('settings', (data) => {
         if (data.settings && data.settings.shortsLimit) {
@@ -107,12 +102,12 @@ function initializeShortsPage() {
         }
       }
     });
-  } catch (e) { console.error("Deadscroll Blocker: Extension context invalidated."); }
+  } catch (e) { /* console.error("Deadscroll Blocker: Extension context invalidated."); */ }
 }
 
 
 function cleanupShortsPage() {
-  console.log("Deadscroll Blocker: Cleaning up from Shorts page.");
+  // console.log("Deadscroll Blocker: Cleaning up from Shorts page.");
   if (shortsObserver) { shortsObserver.disconnect(); shortsObserver = null; }
   const overlay = document.getElementById('deadscroll-blocker-overlay');
   if (overlay) overlay.remove();
@@ -121,12 +116,12 @@ function cleanupShortsPage() {
   window.removeEventListener('touchmove', blockScrollEvents, true);
 }
 
-// --- STATE MACHINE & ENTRY POINT ---
+
 function checkPageState() {
   const url = window.location.href;
   const newState = url.includes('/shorts/') ? 'shorts' : 'other';
   if (newState === currentPageState) return;
-  console.log(`Deadscroll Blocker: Page state changed from '${currentPageState}' to '${newState}'`);
+  // console.log(`Deadscroll Blocker: Page state changed from '${currentPageState}' to '${newState}'`);
   if (currentPageState === 'shorts') { cleanupShortsPage(); }
   if (newState === 'shorts') { initializeShortsPage(); }
   currentPageState = newState;
